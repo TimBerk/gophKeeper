@@ -4,4 +4,5 @@ package domain
 type Repository interface {
 	Save(*Secret) error
 	List(string) ([]*Secret, error)
+	GetRecord(string) (*Secret, error)
 }

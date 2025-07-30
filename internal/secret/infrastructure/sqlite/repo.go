@@ -3,7 +3,12 @@ package sqlite
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
 
+	"github.com/sirupsen/logrus"
+
+	"github.com/TimBerk/gophKeeper/internal/core"
 	sd "github.com/TimBerk/gophKeeper/internal/secret/domain"
 
 	_ "modernc.org/sqlite"
@@ -13,7 +18,7 @@ import (
 type Repo struct{ db *sql.DB }
 
 // NewWithDB - инициализация нового репозитория
-func NewWithDB(db *sql.DB) (Repo, error) { return Repo{db: db}, nil }
+func NewWithDB(db *sql.DB) (*Repo, error) { return &Repo{db: db}, nil }
 
 // Save - сохранение записи
 func (r Repo) Save(s *sd.Secret) error {
@@ -30,7 +35,11 @@ func (r Repo) List(_ string) ([]*sd.Secret, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if errClose := rows.Close(); errClose != nil {
+			logrus.Errorf("rows close: %v", errClose)
+		}
+	}()
 
 	var out []*sd.Secret
 	for rows.Next() {
@@ -41,7 +50,27 @@ func (r Repo) List(_ string) ([]*sd.Secret, error) {
 		}
 		var meta map[string]string
 		_ = json.Unmarshal([]byte(metaStr), &meta)
-		out = append(out, &sd.Secret{ID: sd.ID(id), Type: typ, Data: data, Meta: meta})
+		out = append(out, &sd.Secret{ID: core.ID(id), Type: typ, Data: data, Meta: meta})
 	}
-	return out, rows.Err()
+
+	if errRows := rows.Err(); errRows != nil {
+		return nil, fmt.Errorf("row iteration: %w", errRows)
+	}
+	return out, nil
+}
+
+// GetRecord - получение записи по ID
+func (r *Repo) GetRecord(id string) (*sd.Secret, error) {
+	var typ, metaStr string
+	var data []byte
+	err := r.db.QueryRow(`SELECT type,data,meta FROM secrets WHERE id=?`, id).Scan(&typ, &data, &metaStr)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, core.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	var meta map[string]string
+	_ = json.Unmarshal([]byte(metaStr), &meta)
+	return &sd.Secret{ID: core.ID(id), Type: typ, Data: data, Meta: meta}, nil
 }

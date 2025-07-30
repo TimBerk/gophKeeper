@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/TimBerk/gophKeeper/internal/core"
 	ud "github.com/TimBerk/gophKeeper/internal/user/domain"
 )
 
@@ -30,20 +31,20 @@ func (r *Repo) ByUsername(n string) (*ud.User, error) {
 		`SELECT id,username,hash FROM users WHERE username=$1`, n).
 		Scan(&id, &name, &h)
 	if err == sql.ErrNoRows {
-		return nil, ud.ErrNotFound
+		return nil, core.ErrNotFound
 	}
-	return &ud.User{ID: ud.ID(id), Username: name, Hash: h}, err
+	return &ud.User{ID: core.ID(id), Username: name, Hash: h}, err
 }
 
 // ByID - поиск по ID пользователя
-func (r *Repo) ByID(id ud.ID) (*ud.User, error) {
+func (r *Repo) ByID(id core.ID) (*ud.User, error) {
 	var name string
 	var h []byte
 	err := r.db.QueryRowContext(context.TODO(),
 		`SELECT username,hash FROM users WHERE id=$1`, id).
 		Scan(&name, &h)
 	if err == sql.ErrNoRows {
-		return nil, ud.ErrNotFound
+		return nil, core.ErrNotFound
 	}
 	return &ud.User{ID: id, Username: name, Hash: h}, err
 }

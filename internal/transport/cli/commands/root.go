@@ -14,7 +14,7 @@ import (
 )
 
 // RootCmd возвращает и настраивает корневую Cobra-команду.
-func RootCmd(c *http.Client, sqlDB *sql.DB, repo sqliteRepo.Repo) *cobra.Command {
+func RootCmd(c *http.Client, sqlDB *sql.DB, repo *sqliteRepo.Repo) *cobra.Command {
 	log := logger.New()
 
 	if err := migrate.UpSQLite(sqlDB); err != nil {
@@ -22,7 +22,7 @@ func RootCmd(c *http.Client, sqlDB *sql.DB, repo sqliteRepo.Repo) *cobra.Command
 	}
 
 	root := &cobra.Command{
-		Use:           "govault",
+		Use:           "gophKeeper",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
@@ -47,6 +47,7 @@ func RootCmd(c *http.Client, sqlDB *sql.DB, repo sqliteRepo.Repo) *cobra.Command
 	root.AddCommand(cmdAdd(c, log))
 	root.AddCommand(cmdList(c, log))
 	root.AddCommand(cmdSync(c, repo, log))
+	root.AddCommand(cmdShow(c, repo))
 	root.AddCommand(cmdVersion())
 
 	return root

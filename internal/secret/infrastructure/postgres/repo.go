@@ -4,7 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
 
+	"github.com/sirupsen/logrus"
+
+	"github.com/TimBerk/gophKeeper/internal/core"
 	sd "github.com/TimBerk/gophKeeper/internal/secret/domain"
 )
 
@@ -31,7 +36,11 @@ func (r *Repo) List(uid string) ([]*sd.Secret, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if errClose := rows.Close(); errClose != nil {
+			logrus.Errorf("rows close: %v", errClose)
+		}
+	}()
 
 	var out []*sd.Secret
 	for rows.Next() {
@@ -47,7 +56,26 @@ func (r *Repo) List(uid string) ([]*sd.Secret, error) {
 				return nil, err
 			}
 		}
-		out = append(out, &sd.Secret{ID: sd.ID(id), UserID: uid, Type: typ, Data: data, Meta: meta})
+		out = append(out, &sd.Secret{ID: core.ID(id), UserID: uid, Type: typ, Data: data, Meta: meta})
 	}
-	return out, rows.Err()
+
+	if errRows := rows.Err(); errRows != nil {
+		return nil, fmt.Errorf("row iteration: %w", errRows)
+	}
+	return out, nil
+}
+
+// GetRecord - получение записи по ID
+func (r *Repo) GetRecord(id string) (*sd.Secret, error) {
+	row := r.db.QueryRow(`SELECT user_id,type,data,meta FROM secrets WHERE id=$1`, id)
+	var uid, typ string
+	var data []byte
+	var meta map[string]string
+	if err := row.Scan(&uid, &typ, &data, &meta); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, core.ErrNotFound
+		}
+		return nil, err
+	}
+	return &sd.Secret{ID: core.ID(id), UserID: uid, Type: typ, Data: data, Meta: meta}, nil
 }

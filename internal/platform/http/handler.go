@@ -2,7 +2,12 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/TimBerk/gophKeeper/internal/core"
 
 	"github.com/TimBerk/gophKeeper/internal/platform/jwt"
 )
@@ -20,7 +25,10 @@ func NewHandler(a Auth, v Vault) *Handler { return &Handler{auth: a, vault: v} }
 func (h *Handler) Register() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct{ U, P string }
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		if errDecode := json.NewDecoder(r.Body).Decode(&req); errDecode != nil {
+			http.Error(w, errDecode.Error(), http.StatusBadRequest)
+			return
+		}
 		if err := h.auth.Register(req.U, req.P); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -33,7 +41,10 @@ func (h *Handler) Register() http.HandlerFunc {
 func (h *Handler) Login() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct{ U, P string }
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		if errDecode := json.NewDecoder(r.Body).Decode(&req); errDecode != nil {
+			http.Error(w, errDecode.Error(), http.StatusBadRequest)
+			return
+		}
 		tok, err := h.auth.Login(req.U, req.P)
 		if err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -52,7 +63,10 @@ func (h *Handler) AddSecret() http.HandlerFunc {
 			Data []byte            `json:"data"`
 			Meta map[string]string `json:"meta"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&req)
+		if errDecode := json.NewDecoder(r.Body).Decode(&req); errDecode != nil {
+			http.Error(w, errDecode.Error(), http.StatusBadRequest)
+			return
+		}
 		if err := h.vault.Add(uid, req.Type, req.Data, req.Meta); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -67,6 +81,23 @@ func (h *Handler) ListSecrets() http.HandlerFunc {
 		uid := r.Context().Value(jwt.CtxKey("uid")).(string)
 		list, _ := h.vault.List(uid)
 		_ = json.NewEncoder(w).Encode(list)
+	}
+}
+
+// GetSecret отвечает за получение secret-записи
+func (h *Handler) GetSecret() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		sec, err := h.vault.GetRecord(id)
+		if err != nil {
+			if errors.Is(err, core.ErrNotFound) {
+				http.NotFound(w, r)
+				return
+			}
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(sec)
 	}
 }
 

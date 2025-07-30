@@ -11,9 +11,9 @@ import (
 // cacheDir - получение директории для сохранения токена
 func cacheDir() string {
 	if d, _ := os.UserConfigDir(); d != "" {
-		return filepath.Join(d, "govault")
+		return filepath.Join(d, "gophKeeper")
 	}
-	return filepath.Join(os.Getenv("HOME"), ".govault")
+	return filepath.Join(os.Getenv("HOME"), ".gophKeeper")
 }
 
 // tokenFile - получение пути до токена

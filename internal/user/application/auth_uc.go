@@ -3,6 +3,7 @@ package application
 import (
 	"time"
 
+	"github.com/TimBerk/gophKeeper/internal/core"
 	ujwt "github.com/TimBerk/gophKeeper/internal/platform/jwt"
 	ud "github.com/TimBerk/gophKeeper/internal/user/domain"
 
@@ -19,9 +20,9 @@ type Auth struct {
 // Register - реализация поиска и добавления пользователя при регистрации
 func (a *Auth) Register(name, pw string) error {
 	if _, err := a.Repo.ByUsername(name); err == nil {
-		return ud.ErrExists
+		return core.ErrExists
 	}
-	u, err := ud.New(ud.ID(uuid.NewString()), name, pw)
+	u, err := ud.New(core.ID(uuid.NewString()), name, pw)
 	if err != nil {
 		return err
 	}
@@ -32,10 +33,10 @@ func (a *Auth) Register(name, pw string) error {
 func (a *Auth) Login(name, pw string) (string, error) {
 	u, err := a.Repo.ByUsername(name)
 	if err != nil {
-		return "", ud.ErrNotFound
+		return "", core.ErrNotFound
 	}
 	if !u.Check(pw) {
-		return "", ud.ErrBadPassword
+		return "", core.ErrBadPassword
 	}
 	return a.JWT.Sign(jwt.MapClaims{
 		"sub": u.ID,

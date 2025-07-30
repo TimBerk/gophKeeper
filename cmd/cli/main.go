@@ -11,7 +11,6 @@ import (
 	"github.com/TimBerk/gophKeeper/internal/transport/cli/http"
 
 	"github.com/joho/godotenv"
-	"github.com/spf13/cobra"
 	_ "modernc.org/sqlite"
 
 	"github.com/TimBerk/gophKeeper/internal/config"
@@ -28,9 +27,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("sqlite open: %v", err)
 	}
-	log.Infof("sqlite path %s", cfg.RootDir)
 
-	repo, _ := sqlite.NewWithDB(db)
+	repo, errInitDB := sqlite.NewWithDB(db)
+	if errInitDB != nil {
+		log.Fatalf("erron init sqlite: %v", err)
+	}
 	client := http.New("http://" + cfg.HTTPAddr)
 
 	root := commands.RootCmd(client, db, repo)
@@ -40,11 +41,12 @@ func main() {
 	/* graceful-shutdown */
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	cobra.OnInitialize(func() { go func() { <-ctx.Done(); log.Info("interrupted"); os.Exit(130) }() })
+
+	root.SetContext(ctx)
 
 	log.Info("CLI started")
-	if err := root.ExecuteContext(ctx); err != nil {
-		log.Errorf("command error: %v", err)
+	if errExecute := root.ExecuteContext(ctx); errExecute != nil {
+		log.Errorf("command error: %v", errExecute)
 		os.Exit(1)
 	}
 	log.Info("CLI finished")

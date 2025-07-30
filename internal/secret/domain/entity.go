@@ -1,11 +1,10 @@
 package domain
 
-// ID сущность для работы с ID-записи
-type ID string
+import "github.com/TimBerk/gophKeeper/internal/core"
 
 // Secret сущность для работы с secret-записями
 type Secret struct {
-	ID     ID
+	ID     core.ID
 	UserID string
 	Type   string
 	Data   []byte

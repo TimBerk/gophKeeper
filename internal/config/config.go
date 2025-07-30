@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 )
@@ -10,6 +12,15 @@ type Config struct {
 	JWTKey   []byte
 	PGURL    string
 	RootDir  string
+}
+
+// genKey — 256-битный ключ HS256/HS512.
+func genKey() []byte {
+	b := make([]byte, 32) // 32 байта = 256 бит
+	if _, err := rand.Read(b); err != nil {
+		panic("cannot generate JWT key: " + err.Error())
+	}
+	return b
 }
 
 // projectRoot возвращает:
@@ -43,9 +54,21 @@ func FromEnv() *Config {
 		pg = v
 	}
 
+	var key []byte
+	if v := os.Getenv("GOVAULT_JWT"); v != "" {
+		// допускаем base64 или raw-строку
+		if decoded, err := base64.StdEncoding.DecodeString(v); err == nil {
+			key = decoded
+		} else {
+			key = []byte(v)
+		}
+	} else {
+		key = genKey()
+	}
+
 	return &Config{
 		HTTPAddr: addr,
-		JWTKey:   []byte("change-me"),
+		JWTKey:   key,
 		PGURL:    pg,
 		RootDir:  fullPath(),
 	}

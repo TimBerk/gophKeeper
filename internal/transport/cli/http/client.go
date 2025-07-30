@@ -9,6 +9,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/TimBerk/gophKeeper/internal/platform/logger"
+
 	"github.com/TimBerk/gophKeeper/internal/secret/domain"
 )
 
@@ -49,7 +51,7 @@ func (c *Client) Register(user, pass string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer logger.Close(resp.Body)
 	if resp.StatusCode != 201 {
 		return fmt.Errorf("register: %s", resp.Status)
 	}
@@ -63,7 +65,7 @@ func (c *Client) Login(user, pass string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer logger.Close(resp.Body)
 	if resp.StatusCode != 200 {
 		return errors.New("login failed")
 	}
@@ -90,7 +92,7 @@ func (c *Client) Add(typ string, data []byte, meta map[string]string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer logger.Close(resp.Body)
 	if resp.StatusCode != 201 {
 		return fmt.Errorf("add: %s", resp.Status)
 	}
@@ -109,9 +111,30 @@ func (c *Client) List() ([]*domain.Secret, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer logger.Close(resp.Body)
 	var out []*domain.Secret
 	return out, json.NewDecoder(resp.Body).Decode(&out)
+}
+
+// Detail - выполнение запроса на получение записи
+func (c *Client) Detail(id string) (*domain.Secret, error) {
+	tok, err := c.LoadToken()
+	if err != nil {
+		return nil, err
+	}
+	url := fmt.Sprintf("%s/secret/%s", c.BaseURL, id)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer logger.Close(resp.Body)
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("server %s", resp.Status)
+	}
+	var sec domain.Secret
+	return &sec, json.NewDecoder(resp.Body).Decode(&sec)
 }
 
 // Sync - выполнение запроса для синхронизации локального хранлища

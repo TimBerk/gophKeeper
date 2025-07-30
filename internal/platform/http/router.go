@@ -5,6 +5,7 @@ import (
 
 	"github.com/TimBerk/gophKeeper/internal/platform/jwt"
 	logx "github.com/TimBerk/gophKeeper/internal/platform/logger"
+	"github.com/TimBerk/gophKeeper/internal/secret/domain"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/sirupsen/logrus"
@@ -26,6 +27,7 @@ type Auth interface {
 type Vault interface {
 	Add(string, string, []byte, map[string]string) error
 	List(string) (any, error)
+	GetRecord(string) (*domain.Secret, error)
 }
 
 // NewRouter задаёт роутер для работы с api
@@ -42,6 +44,7 @@ func NewRouter(ai SchemaInfo, a Auth, v Vault, logger *logrus.Logger) http.Handl
 	r.Group(func(pr chi.Router) {
 		pr.Use(jwt.Auth(a))
 		pr.Post("/secret", h.AddSecret())
+		pr.Get("/secret/{id}", h.GetSecret())
 		pr.Get("/secret/list", h.ListSecrets())
 	})
 	return r
